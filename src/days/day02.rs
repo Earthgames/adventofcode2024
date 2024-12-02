@@ -6,18 +6,9 @@ pub fn part1(input: String) -> Result<String> {
     let lists = parse(input);
     let result: u16 = lists
         .iter()
-        .map(|x| {
-            let (safe, increase) = is_safe(&x[0], &x[1]);
-            if !safe {
-                return 0;
-            }
-            for i in 1..(x.len() - 1) {
-                let (safe, new_increase) = is_safe(&x[i], &x[i + 1]);
-                if !safe || increase != new_increase {
-                    return 0;
-                }
-            }
-            1
+        .map(|x| match is_correct(x) {
+            Some(_) => 0,
+            None => 1,
         })
         .sum();
     Ok(result.to_string())
@@ -55,92 +46,42 @@ fn parse(input: String) -> Vec<Vec<u16>> {
         .collect()
 }
 
+fn is_correct(input: &[u16]) -> Option<usize> {
+    let (safe, increase) = is_safe(&input[0], &input[1]);
+    if !safe {
+        return Some(0);
+    }
+    for i in 1..(input.len() - 1) {
+        let (safe, new_increase) = is_safe(&input[i], &input[i + 1]);
+        if !safe || increase != new_increase {
+            return Some(i);
+        }
+    }
+    None
+}
+
+fn try_make_correct(input: &[u16]) -> bool {
+    match is_correct(input) {
+        Some(i) => {
+            let mut tries = vec![i];
+            if i != 0 {
+                tries.push(i - 1);
+            }
+            if i != input.len() - 1 {
+                tries.push(i + 1);
+            }
+            tries.iter().any(|i| {
+                let mut check = input.to_vec();
+                check.remove(*i);
+                is_correct(&check).is_none()
+            })
+        }
+        None => true,
+    }
+}
+
 pub fn part2(input: String) -> Result<String> {
     let lists = parse(input);
-    let result: Vec<bool> = lists
-        .iter()
-        .map(|x| {
-            // check first and second
-            let look = format!("{:?}", x);
-            let (safe, mut increase) = is_safe(&x[0], &x[1]);
-            let (safe2, increase2) = is_safe(&x[1], &x[2]);
-            let mut skip = false;
-            let mut damp = true;
-            if !safe {
-                if safe2 {
-                    increase = increase2
-                }
-                damp = false;
-            }
-            // [77 74 78 80]
-            // 77 -> 5 = 1
-            // 5 -> 9 = 2
-            // 9 -> 10 = 3
-            if increase != increase2 {
-                let (_, increase3) = is_safe(&x[2], &x[3]);
-                if increase == increase3 {
-                    let (safe2_5, _) = is_safe(&x[0], &x[2]);
-                    if safe2_5 {
-                        damp = false;
-                        skip = true;
-                    } else {
-                        return false;
-                    }
-                } else {
-                    increase = increase3;
-                    damp = false;
-                }
-            } else if !safe2 {
-                let (safe2_5, _) = is_safe(&x[0], &x[2]);
-                if safe2_5 {
-                    damp = false;
-                    skip = true;
-                } else {
-                    return false;
-                }
-            }
-
-            // check the rest
-            for i in 1..(x.len() - 1) {
-                if skip {
-                    skip = false;
-                    continue;
-                }
-                let (safe, new_increase) = is_safe(&x[i], &x[i + 1]);
-                if safe && increase == new_increase {
-                    continue;
-                }
-                if damp {
-                    // can we skip current index one?
-                    // :(
-                    // I check -1 and +1 to see if I can skip the current one
-                    // [-1 ,current +1]
-                    // But the next one can check it himself
-                    // more for you
-                    //                   r
-                    // [-2, -1, current, +1, +2]
-                    // probably
-                    // @Geode <3 yes I get it now <3
-                    let (safe, new_increase) = is_safe(&x[i - 1], &x[i + 1]);
-                    if safe && increase == new_increase || i >= x.len() - 2 {
-                        damp = false;
-                        continue;
-                    }
-                    let (safe, new_increase) = is_safe(&x[i], &x[i + 2]);
-                    if safe && increase == new_increase {
-                        damp = false;
-                        skip = true;
-                        continue;
-                    }
-                    return false;
-                } else {
-                    return false;
-                }
-            }
-            // println!("{:?}", x);
-            true
-        })
-        .collect();
-    println!("{:?}", result);
+    let result: Vec<bool> = lists.iter().map(|x| try_make_correct(x)).collect();
     Ok(result.iter().filter(|x| **x).count().to_string())
 }
