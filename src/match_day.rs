@@ -1,4 +1,4 @@
-use adventofcode2024::days::{day01, day02};
+use adventofcode2024::days::{day01, day02, day03};
 use anyhow::anyhow;
 use anyhow::Result;
 use std::fs;
@@ -20,6 +20,8 @@ pub fn match_day(day: u8, part2: bool, test: bool) -> (Result<String>, Duration)
         (1, true) => run_day!(day01, part2, input),
         (2, false) => run_day!(day02, part1, input),
         (2, true) => run_day!(day02, part2, input),
+        (3, false) => run_day!(day03, part1, input),
+        (3, true) => run_day!(day03, part2, input),
         _ => (Err(anyhow!("could not find day")), Duration::from_millis(0)),
     }
 }
