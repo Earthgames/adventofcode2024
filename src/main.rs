@@ -7,7 +7,7 @@ mod match_day;
 #[clap(propagate_version = true)]
 pub struct Cli {
     /// The day
-    #[clap(default_value_t = 3)]
+    #[clap(default_value_t = 5)]
     #[arg(short, long)]
     pub day: u8,
 
