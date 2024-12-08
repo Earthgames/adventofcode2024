@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use anyhow::{Ok, Result};
 
@@ -13,7 +13,7 @@ pub fn part1(input: String) -> Result<String> {
             guard.turn();
         } else {
             guard.update_pos(pos_next);
-            grid.insert(pos_next, Block::Walked(guard.direction)); // Does not matter yet
+            grid.insert(pos_next, Block::Walked(HashSet::new())); // Does not matter yet
         }
     }
     let result = grid.values().fold(0, |acc, val| match val {
@@ -23,7 +23,7 @@ pub fn part1(input: String) -> Result<String> {
     Ok(result.to_string())
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 enum Direction {
     North,
     East,
@@ -57,15 +57,6 @@ impl Guard {
     }
     fn turn(&mut self) {
         self.direction = turn_direction(self.direction)
-    }
-    fn turnable(&self, direction: &Direction) -> bool {
-        matches!(
-            (self.direction, direction),
-            (Direction::North, Direction::East)
-                | (Direction::East, Direction::South)
-                | (Direction::South, Direction::West)
-                | (Direction::West, Direction::North)
-        )
     }
     fn move_direction(&self) -> (i32, i32) {
         self.move_direction_point(self.pos)
@@ -104,10 +95,7 @@ impl Guard {
                     }
 
                     Block::Walked(direction_test) => {
-                        if &direction == direction_test {
-                            println!("{:?}, {:?}", self.pos, pos_next);
-                            print_grid_point(grid, x_max, y_max, pos_next);
-                            println!();
+                        if direction_test.contains(&direction) {
                             break true;
                         }
                         guard.update_pos(pos_next);
@@ -120,59 +108,13 @@ impl Guard {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 enum Block {
     Block,
-    Walked(Direction),
+    Walked(HashSet<Direction>),
 }
 
 type Grid = HashMap<(i32, i32), Block>;
-
-fn print_grid(grid: &Grid, x_max: i32, y_max: i32) {
-    for y in 0..=y_max {
-        let mut str = y.to_string();
-        for x in 0..=x_max {
-            if let Some(block) = grid.get(&(x, y)) {
-                match block {
-                    Block::Block => str.push('#'),
-                    Block::Walked(direction) => str.push(match direction {
-                        Direction::North => '^',
-                        Direction::East => '>',
-                        Direction::South => 'v',
-                        Direction::West => '<',
-                    }),
-                }
-            } else {
-                str.push('.')
-            }
-        }
-        println!("{}", str);
-    }
-}
-
-fn print_grid_point(grid: &Grid, x_max: i32, y_max: i32, pos: (i32, i32)) {
-    for y in 0..=y_max {
-        let mut str = y.to_string();
-        for x in 0..=x_max {
-            if pos == (x, y) {
-                str.push('$')
-            } else if let Some(block) = grid.get(&(x, y)) {
-                match block {
-                    Block::Block => str.push('#'),
-                    Block::Walked(direction) => str.push(match direction {
-                        Direction::North => '^',
-                        Direction::East => '>',
-                        Direction::South => 'v',
-                        Direction::West => '<',
-                    }),
-                }
-            } else {
-                str.push('.')
-            }
-        }
-        println!("{}", str);
-    }
-}
 
 fn parse(input: String) -> (Grid, Guard, (i32, i32)) {
     let mut grid = HashMap::new();
@@ -184,7 +126,10 @@ fn parse(input: String) -> (Grid, Guard, (i32, i32)) {
                     grid.insert((x as i32, y as i32), Block::Block);
                 }
                 '^' => {
-                    grid.insert((x as i32, y as i32), Block::Walked(Direction::North));
+                    grid.insert(
+                        (x as i32, y as i32),
+                        Block::Walked(HashSet::from([Direction::North; 1])),
+                    );
                     guard_pos = (x as i32, y as i32);
                 }
                 _ => (),
@@ -204,36 +149,21 @@ pub fn part2(input: String) -> Result<String> {
         if !(0..=x_max).contains(&x_next) || !(0..=y_max).contains(&y_next) {
             break;
         }
-        // if let Some(block) = grid.get(&pos_next) {
-        //     match block {
-        //         Block::Block => guard.turn(),
-        //         Block::Walked(direction) => {
-        //             let direction = *direction; // immutable borrow from grid lost here
-        //             guard.update_pos(pos_next);
-        //             grid.insert(pos_next, Block::Walked(guard.direction)); // so we can borrow grid here mutably
-        //             if !guard.turnable(&direction) {
-        //                 continue;
-        //             }
-        //             let (x_next, y_next) = guard.move_direction();
-        //             if !(0..=x_max).contains(&x_next) || !(0..=y_max).contains(&y_next) {
-        //                 continue;
-        //             } else {
-        //                 println!("{:?}", (x_next, y_next));
-        //                 result += 1;
-        //             }
-        //         }
-        //     }
-        // }
         if grid.get(&pos_next) == Some(&Block::Block) {
             guard.turn();
         } else {
             if guard.try_move_lots(&grid, x_max, y_max) {
-                // println!("{:?}", guard.pos);
                 result += 1;
             }
             guard.update_pos(pos_next);
-            grid.insert(pos_next, Block::Walked(guard.direction));
         }
+        match grid
+            .entry(pos_next)
+            .or_insert(Block::Walked(HashSet::new()))
+        {
+            Block::Block => false,
+            Block::Walked(hash_set) => hash_set.insert(guard.direction),
+        };
     }
     Ok(result.to_string())
 }
